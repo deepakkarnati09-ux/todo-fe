@@ -4,7 +4,7 @@ import dayjs from 'dayjs';
 import { jwtDecode } from 'jwt-decode';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
-const API = import.meta.env.VITE_API_BASE || 'http://localhost:4000';
+const API ='https://todo-be-ax5x.onrender.com'
 
 function useAuth() {
   const [token, setToken] = useState(null);
