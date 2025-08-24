@@ -1,0 +1,30 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Team Task Board</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; margin: 0; background: #f6f7fb; }
+      .container { max-width: 1200px; margin: 0 auto; padding: 16px; }
+      .board { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+      .col { background: #fff; border-radius: 12px; padding: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); min-height: 70vh; }
+      .col h3 { margin: 8px; }
+      .task { background: #fafafa; border: 1px solid #eee; border-radius: 10px; padding: 10px; margin: 8px; cursor: grab; }
+      .task .meta { font-size: 12px; color: #555; display: flex; gap: 8px; flex-wrap: wrap }
+      .badge { padding: 2px 8px; border-radius: 999px; font-size: 12px; border: 1px solid #ddd; background: #f0f0f0; }
+      .toolbar { display: flex; gap: 8px; margin-bottom: 12px; align-items: center; }
+      .toolbar input, .toolbar select, .toolbar button { padding: 8px; border-radius: 8px; border: 1px solid #ddd; }
+      .modal { position: fixed; inset: 0; backdrop-filter: blur(2px); background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; }
+      .modal-card { width: 600px; max-width: 92vw; background: #fff; border-radius: 12px; padding: 16px; }
+      .comments { margin-top: 12px; border-top: 1px solid #eee; padding-top: 8px; }
+      .auth { display: grid; place-items: center; height: 90vh; }
+      .card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 1px 4px rgba(0,0,0,.08); width: 360px; }
+      .row { display: flex; gap: 8px; }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>

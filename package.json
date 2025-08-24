@@ -1,0 +1,25 @@
+{
+  "name": "ttb-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@hello-pangea/dnd": "^16.5.0",
+    "axios": "^1.7.2",
+    "dayjs": "^1.11.11",
+    "jwt-decode": "^4.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.66",
+    "@types/react-dom": "^18.2.23",
+    "@vitejs/plugin-react": "^5.0.1",
+    "vite": "^5.2.0"
+  }
+}
