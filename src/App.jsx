@@ -1,10 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import axios from 'axios';
 import dayjs from 'dayjs';
 import { jwtDecode } from 'jwt-decode';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 
-const API ='https://todo-be-ax5x.onrender.com'
+const API = 'https://todo-be-ax5x.onrender.com'
 
 function useAuth() {
   const [token, setToken] = useState(null);
@@ -41,10 +40,21 @@ function AuthScreen({ onAuth }) {
     setLoading(true);
     try {
       const url = mode === 'login' ? '/auth/login' : '/auth/signup';
-      const res = await axios.post(API + url, { email, password });
-      onAuth(res.data.token, res.data.user);
+      const response = await fetch(API + url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Authentication failed');
+      }
+      
+      onAuth(data.token, data.user);
     } catch (error) {
-      alert(error.response?.data?.error || 'Authentication failed');
+      alert(error.message || 'Authentication failed');
     } finally {
       setLoading(false);
     }
@@ -144,6 +154,7 @@ export default function App() {
     assigneeId:'', 
     dueDate:'' 
   });
+  const [loading, setLoading] = useState(false);
   
   const statuses = ['BACKLOG','IN_PROGRESS','REVIEW','DONE'];
   const statusTitles = { 
@@ -165,13 +176,21 @@ export default function App() {
       
       console.log('Fetching tasks with params:', params.toString());
       
-      const res = await axios.get(`${API}/tasks?${params.toString()}`, { headers });
-      console.log('Fetched tasks:', res.data);
-      setTasks(res.data);
+      const response = await fetch(`${API}/tasks?${params.toString()}`, { 
+        headers 
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch tasks');
+      }
+      
+      const data = await response.json();
+      console.log('Fetched tasks:', data);
+      setTasks(data);
       
       // Extract unique users from tasks
       const emails = {};
-      res.data.forEach(t => { 
+      data.forEach(t => { 
         if (t.assignee) emails[t.assignee.id] = t.assignee.email; 
       });
       const usersFromTasks = Object.entries(emails).map(([id,email])=>({id,email}));
@@ -191,9 +210,15 @@ export default function App() {
 
   async function fetchUsers() {
     try {
-      const res = await axios.get(`${API}/tasks/users`, { headers });
-      console.log('Fetched users:', res.data);
-      setUsers(res.data);
+      const response = await fetch(`${API}/tasks/users`, { headers });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch users');
+      }
+      
+      const data = await response.json();
+      console.log('Fetched users:', data);
+      setUsers(data);
     } catch (error) {
       console.error('Failed to fetch users:', error);
       // Fallback to extracting users from tasks if the endpoint fails
@@ -222,8 +247,21 @@ export default function App() {
     if (!current || current.status === destCol) return;
     
     try {
-      const res = await axios.put(`${API}/tasks/${taskId}`, { status: destCol }, { headers });
-      setTasks(prev => prev.map(t => t.id===taskId ? res.data : t));
+      const response = await fetch(`${API}/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: destCol })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update task status');
+      }
+      
+      const updatedTask = await response.json();
+      setTasks(prev => prev.map(t => t.id===taskId ? updatedTask : t));
     } catch (error) {
       console.error('Failed to update task status:', error);
       alert('Failed to update task status');
@@ -249,56 +287,92 @@ export default function App() {
       return;
     }
     
-    let data = { ...newTask };
-
-    // Ensure dueDate is valid - don't convert to ISO immediately
-    console.log('Raw dueDate from form:', data.dueDate);
+    setLoading(true);
     
-    // The datetime-local input gives us a string like "2024-08-24T15:30"
-    // We need to make sure it's complete
-    if (!data.dueDate || data.dueDate.length < 16) {
-      alert('Please select a complete date and time');
-      return;
-    }
-    
-    // Test if the date is valid before sending
-    const testDate = new Date(data.dueDate);
-    if (isNaN(testDate.getTime())) {
-      alert('Invalid date format');
-      return;
-    }
-    
-    // Convert to ISO string for the API
-    data.dueDate = testDate.toISOString();
-    console.log('Converted dueDate to ISO:', data.dueDate);
-
-    // Handle assigneeId
-    if (!data.assigneeId || data.assigneeId.trim() === '') {
-      data.assigneeId = null;
-    } else {
-      data.assigneeId = data.assigneeId.trim();
-    }
-
-    console.log('Final data being sent to API:', data);
-
     try {
-      const res = await axios.post(`${API}/tasks`, data, { headers });
-      console.log('Task created successfully:', res.data);
+      let data = { ...newTask };
+
+      // Ensure dueDate is valid
+      console.log('Raw dueDate from form:', data.dueDate);
+      
+      // The datetime-local input gives us a string like "2024-08-24T15:30"
+      if (!data.dueDate || data.dueDate.length < 16) {
+        alert('Please select a complete date and time');
+        setLoading(false);
+        return;
+      }
+      
+      // Test if the date is valid before sending
+      const testDate = new Date(data.dueDate);
+      if (isNaN(testDate.getTime())) {
+        alert('Invalid date format');
+        setLoading(false);
+        return;
+      }
+      
+      // Convert to ISO string for the API
+      data.dueDate = testDate.toISOString();
+      console.log('Converted dueDate to ISO:', data.dueDate);
+
+      // Handle assigneeId
+      if (!data.assigneeId || data.assigneeId.trim() === '' || data.assigneeId === 'null') {
+        data.assigneeId = null;
+      } else {
+        data.assigneeId = data.assigneeId.trim();
+      }
+
+      // Ensure all required fields are strings and trimmed
+      data.title = data.title.trim();
+      data.description = data.description.trim();
+
+      console.log('Final data being sent to API:', data);
+
+      const response = await fetch(`${API}/tasks`, {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || errorData.details || 'Failed to create task');
+      }
+
+      const createdTask = await response.json();
+      console.log('Task created successfully:', createdTask);
       
       setNewTask({ title:'', description:'', priority:'MEDIUM', assigneeId:'', dueDate:'' });
-      setTasks(prev => [res.data, ...prev]);
+      setTasks(prev => [createdTask, ...prev]);
       alert('Task created successfully!');
+      
     } catch (err) {
-      console.error('Failed to create task:', err.response?.data || err.message);
-      const errorMsg = err.response?.data?.error || err.response?.data?.details || 'Failed to create task';
-      alert(`Error: ${errorMsg}`);
+      console.error('Failed to create task:', err.message);
+      alert(`Error: ${err.message}`);
+    } finally {
+      setLoading(false);
     }
   }
 
   async function addComment(id, body) {
     try {
-      const res = await axios.post(`${API}/tasks/${id}/comments`, { body }, { headers });
-      setModal(m => ({ ...m, comments: [...(m.comments||[]), res.data] }));
+      const response = await fetch(`${API}/tasks/${id}/comments`, {
+        method: 'POST',
+        headers: {
+          ...headers,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ body })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to add comment');
+      }
+
+      const comment = await response.json();
+      setModal(m => ({ ...m, comments: [...(m.comments||[]), comment] }));
     } catch (error) {
       console.error('Failed to add comment:', error);
       alert('Failed to add comment');
@@ -307,9 +381,19 @@ export default function App() {
 
   async function openTask(task) {
     try {
-      const res = await axios.get(`${API}/tasks/${task.id}`, { headers });
-      const cm = await axios.get(`${API}/tasks/${task.id}/comments`, { headers });
-      setModal({ ...res.data, comments: cm.data });
+      const [taskResponse, commentsResponse] = await Promise.all([
+        fetch(`${API}/tasks/${task.id}`, { headers }),
+        fetch(`${API}/tasks/${task.id}/comments`, { headers })
+      ]);
+
+      if (!taskResponse.ok || !commentsResponse.ok) {
+        throw new Error('Failed to load task details');
+      }
+
+      const taskData = await taskResponse.json();
+      const commentsData = await commentsResponse.json();
+      
+      setModal({ ...taskData, comments: commentsData });
     } catch (error) {
       console.error('Failed to open task:', error);
       alert('Failed to load task details');
@@ -356,16 +440,19 @@ export default function App() {
           value={newTask.title} 
           onChange={e=>setNewTask(s=>({...s,title:e.target.value}))} 
           required 
+          disabled={loading}
         />
         <input 
           placeholder="Description" 
           value={newTask.description} 
           onChange={e=>setNewTask(s=>({...s,description:e.target.value}))} 
           required 
+          disabled={loading}
         />
         <select 
           value={newTask.priority} 
           onChange={e=>setNewTask(s=>({...s,priority:e.target.value}))}
+          disabled={loading}
         >
           <option value="LOW">LOW</option>
           <option value="MEDIUM">MEDIUM</option>
@@ -374,6 +461,7 @@ export default function App() {
         <select
           value={newTask.assigneeId}
           onChange={e => setNewTask(s => ({ ...s, assigneeId: e.target.value }))}
+          disabled={loading}
         >
           <option value="">No Assignee</option>
           {users.map(u => <option key={u.id} value={u.id}>{u.email}</option>)}
@@ -383,8 +471,11 @@ export default function App() {
           value={newTask.dueDate} 
           onChange={e=>setNewTask(s=>({...s,dueDate:e.target.value}))} 
           required 
+          disabled={loading}
         />
-        <button type="submit">Add Task</button>
+        <button type="submit" disabled={loading}>
+          {loading ? 'Adding...' : 'Add Task'}
+        </button>
       </form>
 
       <DragDropContext onDragEnd={onDragEnd}>
@@ -435,13 +526,22 @@ export default function App() {
 
 function CommentForm({ onAdd }) {
   const [text, setText] = useState('');
+  const [loading, setLoading] = useState(false);
+  
   return (
     <form 
-      onSubmit={(e)=>{ 
+      onSubmit={async (e)=>{ 
         e.preventDefault(); 
-        if(text.trim()){ 
-          onAdd(text.trim()); 
-          setText(''); 
+        if(text.trim() && !loading){ 
+          setLoading(true);
+          try {
+            await onAdd(text.trim()); 
+            setText(''); 
+          } catch (error) {
+            console.error('Failed to add comment:', error);
+          } finally {
+            setLoading(false);
+          }
         }
       }} 
       style={{display:'flex', gap:8, marginTop:8}}
@@ -450,8 +550,11 @@ function CommentForm({ onAdd }) {
         placeholder="Add a short comment…" 
         value={text} 
         onChange={e=>setText(e.target.value)} 
+        disabled={loading}
       />
-      <button type="submit">Add</button>
+      <button type="submit" disabled={loading || !text.trim()}>
+        {loading ? 'Adding...' : 'Add'}
+      </button>
     </form>
   )
 }
